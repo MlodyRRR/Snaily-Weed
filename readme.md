@@ -33,6 +33,12 @@
     weight = 100,
     stack = true,
     close = true,
+},
+['lighter'] = {
+    label = 'Zapalniczka',
+    weight = 50,
+    stack = true,
+    close = true,
 }
 ```
 
@@ -96,7 +102,13 @@ licencja MIT.
     weight = 100,
     stack = true,
     close = true,
-}
+},
+['lighter'] = {
+    label = 'Ligher',
+    weight = 50,
+    stack = true,
+    close = true,
+},
 ```
 
 ## Configuration
