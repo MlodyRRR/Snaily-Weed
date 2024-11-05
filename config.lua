@@ -4,7 +4,8 @@ Config.Items = {
     Seed = 'weed_seed',
     Water = 'weed_water',
     Fertilizer = 'weed_fertilizer',
-    Weed = 'weed'
+    Weed = 'weed',
+    Lighter = 'lighter'
 }
 
 Config.Plant = {
@@ -49,9 +50,9 @@ Config.Animations = {
         flag = 1
     },
     Destroying = {
-        dict = "mini@repair",
-        anim = "fixing_a_player",
-        flag = 1
+        dict = "amb@world_human_stand_fire@male@base",
+        anim = "base",
+        flag = 49
     }
 }
 
@@ -73,8 +74,20 @@ Config.Progress = {
         duration = 5000
     },
     Destroying = {
-        label = 'Niszczenie rośliny...',
+        label = 'Podpalanie rośliny...',
         duration = 5000
+    }
+}
+
+Config.DestroyEffect = {
+    dict = "core",
+    name = "ent_sht_petrol_fire",
+    scale = 2.0,
+    duration = 3000,
+    offset = {
+        x = 0.0,
+        y = 0.0,
+        z = -0.5
     }
 }
 
@@ -99,6 +112,12 @@ Config.Notify = {
         Destroyed = {
             title = 'Sukces',
             description = 'Zniszczono roślinę'
+        }
+    },
+    Error = {
+        NoLighter = {
+            title = 'Błąd',
+            description = 'Potrzebujesz zapalniczki!'
         }
     }
 }
