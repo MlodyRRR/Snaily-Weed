@@ -60,7 +60,23 @@ lib.callback.register('snaily_weed:harvestPlant', function(source, plantId)
     return false
 end)
 
+lib.callback.register('snaily_weed:checkLighter', function(source)
+    local lighterCount = exports.ox_inventory:GetItemCount(source, Config.Items.Lighter)
+    return lighterCount > 0, lighterCount <= 0 and 'Potrzebujesz zapalniczki!' or nil
+end)
+
 lib.callback.register('snaily_weed:destroyPlant', function(source, plantId)
+    local lighterCount = exports.ox_inventory:GetItemCount(source, Config.Items.Lighter)
+
+    if lighterCount <= 0 then
+        TriggerClientEvent('ox_lib:notify', source, {
+            type = 'error',
+            title = 'Błąd',
+            description = 'Potrzebujesz zapalniczki!'
+        })
+        return false
+    end
+
     if WeedPlants[plantId] then
         WeedPlants[plantId] = nil
         TriggerClientEvent('snaily_weed:syncPlants', -1, WeedPlants)
@@ -83,6 +99,7 @@ CreateThread(function()
             if plant.water == 0 or plant.fertilizer == 0 then
                 plant.quality = math.max(0, plant.quality - 1)
             end
+
         end
         TriggerClientEvent('snaily_weed:syncPlants', -1, WeedPlants)
     end
