@@ -15,6 +15,10 @@
     weight = 50,
     stack = true,
     close = true,
+    description = 'Nasiona do zasadzenia marihuany',
+    client = {
+        event = 'snaily_weed:useSeed',
+    }
 },
 ['weed_water'] = {
     label = 'Woda',
@@ -80,10 +84,15 @@ licencja MIT.
 3. Add items to ox_inventory/data/items.lua:
 ```lua
 ['weed_seed'] = {
-    label = 'Weed Seeds',
+    label = 'Nasiona marihuany',
     weight = 50,
     stack = true,
     close = true,
+    description = 'Nasiona do zasadzenia marihuany',
+    client = {
+        event = 'snaily_weed:useSeed',
+        image = 'weed_seed.png',
+    }
 },
 ['weed_water'] = {
     label = 'Water',
