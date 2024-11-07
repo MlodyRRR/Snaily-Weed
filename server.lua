@@ -1,11 +1,44 @@
 local WeedPlants = {}
 
-lib.callback.register('snaily_weed:plantSeed', function(source, coords)
-    local hasSeeds = exports.ox_inventory:GetItem(source, Config.Items.Seed, 1)
+local function LoadPlants()
+    local SaveFile = LoadResourceFile(GetCurrentResourceName(), "snaily-weedData.json")
+    if SaveFile then
+        WeedPlants = json.decode(SaveFile) or {}
+    end
+end
 
-    if hasSeeds then
-        exports.ox_inventory:RemoveItem(source, Config.Items.Seed, 1)
-        local plantId = #WeedPlants + 1
+local function SavePlants()
+    SaveResourceFile(GetCurrentResourceName(), "snaily-weedData.json", json.encode(WeedPlants), -1)
+end
+
+CreateThread(function()
+    LoadPlants()
+end)
+
+local function IsInPlantingZone(coords)
+    for _, zone in pairs(Config.PlantingZones) do
+        if #(coords - zone.coords) <= zone.radius then
+            return true
+        end
+    end
+    return false
+end
+
+lib.callback.register('snaily_weed:plantSeed', function(source, coords)
+    if not IsInPlantingZone(coords) then
+        lib.notify(source, {
+            type = 'error',
+            description = 'Nie możesz tu sadzić!'
+        })
+        return false
+    end
+
+    if exports.ox_inventory:RemoveItem(source, Config.Items.Seed, 1) then
+        local plantId = 1
+        while WeedPlants[plantId] do
+            plantId = plantId + 1
+        end
+
         WeedPlants[plantId] = {
             coords = coords,
             growth = 0,
@@ -13,6 +46,7 @@ lib.callback.register('snaily_weed:plantSeed', function(source, coords)
             fertilizer = Config.Plant.StartingValues.Fertilizer,
             quality = Config.Plant.StartingValues.Quality
         }
+        SavePlants()
         TriggerClientEvent('snaily_weed:syncPlants', -1, WeedPlants)
         return true
     end
@@ -20,12 +54,12 @@ lib.callback.register('snaily_weed:plantSeed', function(source, coords)
 end)
 
 lib.callback.register('snaily_weed:waterPlant', function(source, plantId)
-    local hasWater = exports.ox_inventory:GetItem(source, Config.Items.Water, 1)
+    if not WeedPlants[plantId] then return false end
 
-    if hasWater and WeedPlants[plantId] then
-        exports.ox_inventory:RemoveItem(source, Config.Items.Water, 1)
+    if exports.ox_inventory:RemoveItem(source, Config.Items.Water, 1) then
         WeedPlants[plantId].water = Config.Plant.StartingValues.Water
         WeedPlants[plantId].quality = math.min(100, WeedPlants[plantId].quality + Config.Plant.QualityIncrease)
+        SavePlants()
         TriggerClientEvent('snaily_weed:syncPlants', -1, WeedPlants)
         return true
     end
@@ -33,12 +67,12 @@ lib.callback.register('snaily_weed:waterPlant', function(source, plantId)
 end)
 
 lib.callback.register('snaily_weed:fertilizePlant', function(source, plantId)
-    local hasFertilizer = exports.ox_inventory:GetItem(source, Config.Items.Fertilizer, 1)
+    if not WeedPlants[plantId] then return false end
 
-    if hasFertilizer and WeedPlants[plantId] then
-        exports.ox_inventory:RemoveItem(source, Config.Items.Fertilizer, 1)
+    if exports.ox_inventory:RemoveItem(source, Config.Items.Fertilizer, 1) then
         WeedPlants[plantId].fertilizer = Config.Plant.StartingValues.Fertilizer
         WeedPlants[plantId].quality = math.min(100, WeedPlants[plantId].quality + Config.Plant.QualityIncrease)
+        SavePlants()
         TriggerClientEvent('snaily_weed:syncPlants', -1, WeedPlants)
         return true
     end
@@ -46,49 +80,38 @@ lib.callback.register('snaily_weed:fertilizePlant', function(source, plantId)
 end)
 
 lib.callback.register('snaily_weed:harvestPlant', function(source, plantId)
-    if WeedPlants[plantId] and WeedPlants[plantId].growth >= 100 then
-        local amount = math.random(Config.Harvest.Min, Config.Harvest.Max)
-        if Config.Harvest.QualityMultiplier then
-            amount = math.ceil(amount * (WeedPlants[plantId].quality / 100))
-        end
+    if not WeedPlants[plantId] or WeedPlants[plantId].growth < 100 then return false end
 
-        exports.ox_inventory:AddItem(source, Config.Items.Weed, amount)
+    local amount = math.random(Config.Harvest.Min, Config.Harvest.Max)
+    if Config.Harvest.QualityMultiplier then
+        amount = math.ceil(amount * (WeedPlants[plantId].quality / 100))
+    end
+
+    if exports.ox_inventory:AddItem(source, Config.Items.Weed, amount) then
         WeedPlants[plantId] = nil
+        SavePlants()
         TriggerClientEvent('snaily_weed:syncPlants', -1, WeedPlants)
         return true
     end
     return false
 end)
 
-lib.callback.register('snaily_weed:checkLighter', function(source)
-    local lighterCount = exports.ox_inventory:GetItemCount(source, Config.Items.Lighter)
-    return lighterCount > 0, lighterCount <= 0 and 'Potrzebujesz zapalniczki!' or nil
-end)
+lib.callback.register('snaily_weed:WeedDestroy', function(source, plantId)
+    if not WeedPlants[plantId] then return false end
 
-lib.callback.register('snaily_weed:destroyPlant', function(source, plantId)
-    local lighterCount = exports.ox_inventory:GetItemCount(source, Config.Items.Lighter)
-
-    if lighterCount <= 0 then
-        TriggerClientEvent('ox_lib:notify', source, {
-            type = 'error',
-            title = 'Błąd',
-            description = 'Potrzebujesz zapalniczki!'
-        })
-        return false
-    end
-
-    if WeedPlants[plantId] then
-        WeedPlants[plantId] = nil
-        TriggerClientEvent('snaily_weed:syncPlants', -1, WeedPlants)
-        return true
-    end
-    return false
+    WeedPlants[plantId] = nil
+    SavePlants()
+    TriggerClientEvent('snaily_weed:syncPlants', -1, WeedPlants)
+    return true
 end)
 
 CreateThread(function()
     while true do
         Wait(1000)
+        local needsUpdate = false
+
         for plantId, plant in pairs(WeedPlants) do
+            local oldGrowth = plant.growth
             plant.water = math.max(0, plant.water - Config.Plant.WaterDecrease)
             plant.fertilizer = math.max(0, plant.fertilizer - Config.Plant.FertilizerDecrease)
 
@@ -100,7 +123,14 @@ CreateThread(function()
                 plant.quality = math.max(0, plant.quality - 1)
             end
 
+            if oldGrowth ~= plant.growth then
+                needsUpdate = true
+            end
         end
-        TriggerClientEvent('snaily_weed:syncPlants', -1, WeedPlants)
+
+        if needsUpdate then
+            SavePlants()
+            TriggerClientEvent('snaily_weed:syncPlants', -1, WeedPlants)
+        end
     end
 end)
